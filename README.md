@@ -35,4 +35,4 @@ Clement Rey <<cr.rey.clement@gmail.com>> ([@teh_cmc](https://twitter.com/teh_cmc
 
 ## License
 
-Licensed under the [BY-NC-SA Creative Commons 4.0 International Public License](http://creativecommons.org/licenses/by-nc-sa/4.0/)
+Licensed under the [Creative Commons BY-SA 4.0 International Public License](http://creativecommons.org/licenses/by-sa/4.0/)
