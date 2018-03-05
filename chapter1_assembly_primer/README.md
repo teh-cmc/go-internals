@@ -188,7 +188,7 @@ That's a lot of syntax and semantics to ingest all at once. Here's a quick inlin
   0x0013 RET			    ;; jump to return address stored at 0(SP)
 ```
 
-All in all, here's a visual representation of what the stack looks like when `main.add` has finished executing:
+All in all, here's a visual representation of what the stack looks like when `main.add` is about to `RET`:
 ```
    |    +-------------------------+ <-- 32(SP)              
    |    |                         |                         
@@ -385,12 +385,12 @@ The prologue thus checks if the current `SP` value is less than or equal to the 
 
 The body of the epilogue is pretty straightforward: it calls into the runtime, which will do the actual work of growing the stack, then jumps back to the first instruction of the function (i.e. to the prologue).
 
-The `NOP` instruction just before the `CALL` exists so that the prologue doesn't jump directly onto a `CALL` instruction. On some platforms, doing so can lead to very dark places; it's a common pratice to set-up a noop instruction right before the actual call and land on this `NOP` instead.
+The `NOP` instruction just before the `CALL` exists so that the prologue doesn't jump directly onto a `CALL` instruction. On some platforms, doing so can lead to very dark places; it's common pratice to set-up a noop instruction right before the actual call and land on this `NOP` instead.
 
 ### Minus some subtleties
 
 We've merely covered the tip of the iceberg here.  
-The inner mechanics of stack-growth have many subtleties that we haven't mentionned here, and the whole process is quite a complex machinery overall that will require a chapter of its own.
+The inner mechanics of stack-growth have many more subtleties that we haven't even mentionned here. The whole process is quite a complex machinery overall, and will require a chapter of its own.
 
 We'll come back to these matters in time.
 
