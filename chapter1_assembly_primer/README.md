@@ -254,7 +254,7 @@ Nothing new here:
 0x0018 LEAQ     16(SP), BP
 ```
 
-As we mentionned above, the Go calling convention mandates that every argument must be passed on the stack.
+As we mentioned above, the Go calling convention mandates that every argument must be passed on the stack.
 
 Our caller, `main`, grows its stack-frame by 24 bytes (*remember that the stack grows downwards, so `SUBQ` here actually makes the stack-frame bigger*) by decrementing the virtual stack-pointer.
 Of those 24 bytes:
@@ -390,7 +390,7 @@ The `NOP` instruction just before the `CALL` exists so that the prologue doesn't
 ### Minus some subtleties
 
 We've merely covered the tip of the iceberg here.  
-The inner mechanics of stack-growth have many more subtleties that we haven't even mentionned here. The whole process is quite a complex machinery overall, and will require a chapter of its own.
+The inner mechanics of stack-growth have many more subtleties that we haven't even mentioned here. The whole process is quite a complex machinery overall, and will require a chapter of its own.
 
 We'll come back to these matters in time.
 
