@@ -307,10 +307,10 @@ We should be able to quickly recognize these patterns, and, while we're at it, u
 
 ### Stacks
 
-Since the number of goroutines in a Go program is non-deterministic, and can go up to several millions in practice, the runtime must take the conversative route when allocating stack space for goroutines to avoid eating up all of the available memory.  
+Since the number of goroutines in a Go program is non-deterministic, and can go up to several millions in practice, the runtime must take the conservative route when allocating stack space for goroutines to avoid eating up all of the available memory.  
 As such, every new goroutine is given an initial tiny 2kB stack by the runtime (said stack is actually allocated on the heap behind the scenes).
 
-As a goroutine runs along doing its job, it might end up outgrowing its contrived, initial stack-space (i.e. stack-overflow).  
+As a goroutine runs along doing its job, it might end up outgrowing its constrained, initial stack-space (i.e. stack-overflow).  
 To prevent this from happening, the runtime makes sure that when a goroutine is running out of stack, a new, bigger stack with two times the size of the old one gets allocated, and that the content of the original stack gets copied over to the new one.  
 This process is known as a *stack-split* and effectively makes goroutine stacks dynamically-sized.
 
