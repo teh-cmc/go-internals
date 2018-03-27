@@ -1,51 +1,37 @@
 <!-- Copyright © 2018 Clement Rey <cr.rey.clement@gmail.com>. -->
 <!-- Licensed under the BY-NC-SA Creative Commons 4.0 International Public License. -->
 
-# Chapter I: A Primer on Go Assembly
+# 第一章：  Go 汇编入门 
 
-Developing some familiarity with Go's abstract assembly language is a must before we can start delving into the implementation of the runtime & standard library.  
-This quick guide should hopefully get you up-to-speed.
+开发一些类似Go语言的抽象汇编语言，必须需要从研究运行时与标准库开始。本文会帮助你快速上手。
 
-- *This chapter assumes some basic knowledge of any kind of assembler.*
-- *If and when running into architecture-specifics matters, always assume `linux/amd64`.*
-- *We will always work with compiler optimizations **enabled**.*
-
----
-
-**Table of Contents**
-<!-- START doctoc generated TOC please keep comment here to allow auto update -->
-<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
-
-
-- ["Pseudo-assembly"](#pseudo-assembly)
-- [Decomposing a simple program](#decomposing-a-simple-program)
-  - [Dissecting `add`](#dissecting-add)
-  - [Dissecting `main`](#dissecting-main)
-- [A word about goroutines, stacks and splits](#a-word-about-goroutines-stacks-and-splits)
-  - [Stacks](#stacks)
-  - [Splits](#splits)
-  - [Minus some subtleties](#minus-some-subtleties)
-- [Conclusion](#conclusion)
-- [Links](#links)
-
-<!-- END doctoc generated TOC please keep comment here to allow auto update -->
+- *本章假设读者了解基本的汇编知识* 
+- *当涉及系统架构时，总是假设为`linux/adm64`*
+- *我们会默认开启编译器优化选项**enabled***
 
 ---
 
-*Quoted text and/or comments always come from the official documentation and/or codebase, unless stated otherwise.*
+**内容目录**
 
-## "Pseudo-assembly"
 
-The Go compiler outputs an abstract, portable form of assembly that doesn't actually map to any real hardware. The Go assembler then uses this pseudo-assembly output in order to generate concrete, machine-specific instructions for the targeted hardware.  
-This extra layer has many benefits, the main one being how easy it makes porting Go to new architectures. For more information, have a look at Rob Pike's *The Design of the Go Assembler*, listed in the links at the end of this chapter.
 
-> The most important thing to know about Go's assembler is that it is not a direct representation of the underlying machine. Some of the details map precisely to the machine, but some do not. This is because the compiler suite needs no assembler pass in the usual pipeline. Instead, the compiler operates on a kind of semi-abstract instruction set, and instruction selection occurs partly after code generation. The assembler works on the semi-abstract form, so when you see an instruction like MOV what the toolchain actually generates for that operation might not be a move instruction at all, perhaps a clear or load. Or it might correspond exactly to the machine instruction with that name. In general, machine-specific operations tend to appear as themselves, while more general concepts like memory move and subroutine call and return are more abstract. The details vary with architecture, and we apologize for the imprecision; the situation is not well-defined.
+---
 
-> The assembler program is a way to parse a description of that semi-abstract instruction set and turn it into instructions to be input to the linker.
+*引号或注释中的内容属于来自官方文档，或者代码库，除非另有说明*
 
-## Decomposing a simple program
+## "伪汇编"
 
-Consider the following Go code ([direct_topfunc_call.go](./direct_topfunc_call.go)):
+
+Go 编译器输出一种抽象的，可移植的汇编代码，但这种汇编不会对应任何实际硬件。Go汇编器用伪汇编来生成目标机器的与硬件相关的指令代码。这种额外的抽象层有很多优势，最主要的是比较容易的将Go移植到新架构。更多的信息可以查看Rob Pike的*Go汇编器设计*,链接在本章最后。
+
+
+
+> 了解Go的汇编器最重要的一点是，它不是一个底层机器的直接表现。一些是机器的细节映射，但一些不是。这是因为编译器不需要汇编器通过常用的管道。相反，编译器操作一种半抽象的指令集，不同架构指令的选择会在代码生成之后。汇编器工作在一种半抽象的形式，所以当你看到类似MOV的指令，工具链实际上生成了不仅mov这一条指令。可能有一个clear或者load。或者是机器指令相关的与mov对应的其他指令。通常特定机器的操作往往有自己的形式，而更通用的操作，类似内存移动、程序调用与返回，会更加抽象。细节随架构而变化，并且我们为不精确而抱歉；因为情况并不明确。
+> 汇编程序去解析这种半抽象的指令集，将其转换为可以输入到连接器的指令。
+
+## 分解一个简单程序
+
+考虑下面的Go程序 ([direct_topfunc_call.go](./direct_topfunc_call.go)):
 ```Go
 //go:noinline
 func add(a, b int32) (int32, bool) { return a + b, true }
@@ -53,8 +39,10 @@ func add(a, b int32) (int32, bool) { return a + b, true }
 func main() { add(10, 32) }
 ```
 *(Note the `//go:noinline` compiler-directive here... Don't get bitten.)*
+*(注意`//go:noinline` 编译器指令... 别忽略)*
 
-Let's compile this down to assembly:
+编译成汇编程序
+
 ```
 $ GOOS=linux GOARCH=amd64 go tool compile -S direct_topfunc_call.go
 ```
@@ -85,70 +73,66 @@ $ GOOS=linux GOARCH=amd64 go tool compile -S direct_topfunc_call.go
   0x0039 RET
   ;; ...omitted stack-split epilogue...
 ```
+我们会一行行分析这两个函数，能更好地理解编译器做了什么
 
-We'll dissect those 2 functions line-by-line in order to get a better understanding of what the compiler is doing.
-
-### Dissecting `add`
+### 分析`add`
 
 ```Assembly
 0x0000 TEXT "".add(SB), NOSPLIT, $0-16
 ```
 
-- `0x0000`: Offset of the current instruction, relative to the start of the function.
+- `0x0000`: 相对于函数开始位置，当前指令的偏移量 
 
-- `TEXT "".add`: The `TEXT` directive declares the `"".add` symbol as part of the `.text` section (i.e. runnable code) and indicates that the instructions that follow are the body of the function.  
-The empty string `""` will be replaced by the name of the current package at link-time: i.e., `"".add` will become `main.add` once linked into our final binary.
+- `TEXT "".add`: `TEXT` 指令声明`"".add`符号 是`.text`节(section)的一部分(i.e. 客运行代码) 暗示了接下来的指令是这个函数的主体.空字符串`""`在链接期间会被包名替代。例如, `"".add`链接为二进制后会变成`main.add` 
 
-- `(SB)`: `SB` is the virtual register that holds the "static-base" pointer, i.e. the address of the beginning of the address-space of our program.  
-`"".add(SB)` declares that our symbol is located at some constant offset (computed by the linker) from the start of our address-space. Put differently, it has an absolute, direct address: it's a global function symbol.  
-Good ol' `objdump` will confirm all of that for us:
+- `(SB)`: `SB` 是虚拟寄存器，保存了static-base指针，例如程序的起始地址。`"".add(SB)` 声明了我们的符号位于相对于内存空间起始地址的常量偏移处(通过链接器计算得到的)。它是全局符号表，是绝对的，直接地址。`objdump` 可以验证:
 ```
 $ objdump -j .text -t direct_topfunc_call | grep 'main.add'
 000000000044d980 g     F .text	000000000000000f main.add
 ```
-> All user-defined symbols are written as offsets to the pseudo-registers FP (arguments and locals) and SB (globals).  
-> The SB pseudo-register can be thought of as the origin of memory, so the symbol foo(SB) is the name foo as an address in memory.
+> 所有用户定义的符号被写在伪寄存器FP(参数与局部的)和SB(全局的)保存的偏移量处。
+> 伪寄存器SB被认为是内存起始，符号foo(SB)是foo名称的内存地址
 
-- `NOSPLIT`: Indicates to the compiler that it should *not* insert the *stack-split* preamble, which checks whether the current stack needs to be grown.  
-In the case of our `add` function, the compiler has set the flag by itself: it is smart enough to figure that, since `add` has no local variables and no stack-frame of its own, it simply cannot outgrow the current stack; thus it'd be a complete waste of CPU cycles to run these checks at each call site.  
-> "NOSPLIT": Don't insert the preamble to check if the stack must be split. The frame for the routine, plus anything it calls, must fit in the spare space at the top of the stack segment. Used to protect routines such as the stack splitting code itself.  
-We'll have a quick word about goroutines and stack-splits at the end this chapter.
+- `NOSPLIT`: 意味着编译器*不*应该插入*stack-split*, 这个会检查当前栈是否需要增长。
+  在`add`函数这个例子中，编译器自己设定了这个标志：它能知道`add`没有自己的局部变量和栈帧，当前栈不会增长，也就不需要CPU去检查栈是否需要增长。
+> "NOSPLIT": 如果栈必须分裂，不要插入这个前导码。程序与它调用的子程序，必须满足栈的空间需求。栈分裂自己的代码会保护子程序。
+> 我们会在本章结束时简单介绍一下协程(goroutines)和stack-splits。
 
-- `$0-16`: `$0` denotes the size in bytes of the stack-frame that will be allocated; while `$16` specifies the size of the arguments passed in by the caller.  
-> In the general case, the frame size is followed by an argument size, separated by a minus sign. (It's not a subtraction, just idiosyncratic syntax.) The frame size $24-8 states that the function has a 24-byte frame and is called with 8 bytes of argument, which live on the caller's frame. If NOSPLIT is not specified for the TEXT, the argument size must be provided. For assembly functions with Go prototypes, go vet will check that the argument size is correct.
+- `$0-16`: `$0` 表示stack-frame的会被分配的空间大小，而`$16`特指传入参数的大小。
+
+> 在通常情况下,帧的大小与参数的大小一致，通过一个减号分离开。帧大小$24-8表示函数有一个24字节大小的帧，它有8字节的参数存在于调用者的帧。如果在TEXT中没有指定NOSPLIT，必须要提供参数大小。在go语言中，汇编函数会用go vet 会检查参数是否正确。
 
 ```Assembly
 0x0000 FUNCDATA $0, gclocals·f207267fbf96a0178e8758c6e3e0ce28(SB)
 0x0000 FUNCDATA $1, gclocals·33cdeccccebe80329f1fdbee7f5874cb(SB)
 ```
 
-> The FUNCDATA and PCDATA directives contain information for use by the garbage collector; they are introduced by the compiler.
+> FUNCDATA和PCDATA指令保存了垃圾回收器用到的相关信息，它们由编译器引入。
 
-Don't worry about this for now; we'll come back to it when diving into garbage collection later in the book.
+现在不需要担心，我们在介绍垃圾回收器时，会回来再解释。
+
 
 ```Assembly
 0x0000 MOVL "".b+12(SP), AX
 0x0004 MOVL "".a+8(SP), CX
 ```
 
-The Go calling convention mandates that every argument must be passed on the stack, using the pre-reserved space on the caller's stack-frame.  
-It is the caller's responsibility to grow (and shrink back) the stack appropriately so that arguments can be passed to the callee, and potential return-values passed back to the caller.
+Go的调用规则规定了每个参数必须通过栈转递，这个栈使用了调用者的stack-frame中预留的空间。调用者负责维护这个stack-frame的预留空间，确保被调用者的参数与返回值可以正确的传递。
+Go编译器从不生成PUSH或者POP类的指令：栈的增长或减少通过增加或减小虚拟栈指针`SP`来实现。
+> 伪寄存器SP是一个虚拟的栈指针，它被用来引用帧本地变量和调用者的传参。它指向本地栈帧顶部，所以偏移量应该为负数，在[-帧大小,0)区间内。例如：x-8(SP),y-4(SP)等。
 
-The Go compiler never generates instructions from the PUSH/POP family: the stack is grown or shrunk by respectively decrementing or incrementing the virtual stack pointer `SP`.  
-> The SP pseudo-register is a virtual stack pointer used to refer to frame-local variables and the arguments being prepared for function calls. It points to the top of the local stack frame, so references should use negative offsets in the range [−framesize, 0): x-8(SP), y-4(SP), and so on.
+尽管官方文档说“*所有用户定义的符号会作为偏移量被写到伪寄存器FP中*",这只会对手写代码才是正确的。像最近的编译器，Go工具生成的代码会直接从栈指针中使用参数和本地变量的偏移量。这样帧指针就可以被用做额外的通用寄存器，在哪些寄存器比较少的平台上，例如x86.可以参考本章最后的参考链接*stack frame layout on X86-64*，如果你喜欢这类的细节。
 
-Although the official documentation states that "*All user-defined symbols are written as offsets to the pseudo-register FP (arguments and locals)*", this is only ever true for hand-written code.  
-Like most recent compilers, the Go tool suite always references argument and locals using offsets from the stack-pointer directly in the code it generates. This allows for the frame-pointer to be used as an extra general-purpose register on platform with fewer registers (e.g. x86).  
-Have a look at *Stack frame layout on x86-64* in the links at the end of this chapter if you enjoy this kind of nitty gritty details.
+`"".b+12(SP)` 和 `"".a+8(SP)` 分别引用到从栈顶向下偏移地址12字节和8字节的内容（记住栈是向下生长的）。
+`.a` 和 `.b` 是所引用的位置的随意的别称；尽管*它们绝对没有语义上的含义* ，无论如何，当使用虚拟寄存器中的相对地址就必须要使用它们。
 
-`"".b+12(SP)` and `"".a+8(SP)` respectively refer to the addresses 12 bytes and 8 bytes below the top of the stack (remember: it grows downwards!).  
-`.a` and `.b` are arbitrary aliases given to the referred locations; although *they have absolutely no semantic meaning* whatsoever, they are mandatory when using relative addressing on virtual registers.
-The documentation about the virtual frame-pointer has some to say about this:
-> The FP pseudo-register is a virtual frame pointer used to refer to function arguments. The compilers maintain a virtual frame pointer and refer to the arguments on the stack as offsets from that pseudo-register. Thus 0(FP) is the first argument to the function, 8(FP) is the second (on a 64-bit machine), and so on. However, when referring to a function argument this way, it is necessary to place a name at the beginning, as in first_arg+0(FP) and second_arg+8(FP). (The meaning of the offset —offset from the frame pointer— distinct from its use with SB, where it is an offset from the symbol.) The assembler enforces this convention, rejecting plain 0(FP) and 8(FP). The actual name is semantically irrelevant but should be used to document the argument's name.
+关于虚拟的帧指针（FP），官方文档中这样说：
+> FP 伪寄存器是一个虚拟的帧指针，用来引用函数参数。编译器维护一个虚拟帧指针并且用它来引用存在栈中的参数。0(FP)是函数的第一个参数，8(FP)是第二个(在64位系统中)，等等。然而，用这种方式引用一个函数参数，需要在开始定义一个名字，比如firs_arg+0(FP)和second_arg+8(FP)。（偏移量是指从帧指针开始的偏移量。这与SB不一样，SB保存的是从符号计算的偏移量）。汇编器会执行这种约定，拒绝纯粹的0(FP)和8（FP)。实际的名字是语义无关，但是应该记录参数的名称。
 
-Finally, there are two important things to note here:
-1. The first argument `a` is not located at `0(SP)`, but rather at `8(SP)`; that's because the caller stores its return-address in `0(SP)` via the `CALL` pseudo-instruction.
-2. Arguments are passed in reverse-order; i.e. the first argument is the closest to the top of the stack.
+最后，两个事情需要重点提议下：
+1. 第一个参数`a`不是位于`0(SP)`,而是在`8(SP)`；因为调用者会通过`CALL`为指令，使用`0(SP)`作为函数的返回值地址。
+
+2. 参数的传递是反序的，第一个参数是最接近栈顶的。
 
 ```Assembly
 0x0008 ADDL CX, AX
@@ -156,23 +140,21 @@ Finally, there are two important things to note here:
 0x000e MOVB $1, "".~r3+20(SP)
 ```
 
-`ADDL` does the actual addition of the two **L**ong-words (i.e. 4-byte values) stored in `AX` and `CX`, then stores the final result in `AX`.  
-That result is then moved over to `"".~r2+16(SP)`, where the caller had previously reserved some stack space and expects to find its return values. Once again, `"".~r2` has no semantic meaning here.
+`ADDL`会将两个存储在`AX`和`CX`中的值相加，结果存储在`AX`中。L表示长字，例如4个字节。结果会移动到`"".~r2+16(SP)`，这是调用者事先预留存放返回值的地方。再一次，这里的`"".~r2`在语义上没有具体意义。
 
-To demonstrate how Go handles multiple return-values, we're also returning a constant `true` boolean value.  
-The mechanics at play are exactly the same as for our first return value; only the offset relative to `SP` changes.
+为了演示Go如何处理多个返回值，我们返回了一个boolen类型的常量`true`。这里的规则与我们第一个返回值是相同的，只有相对于`SP`的偏移量改变了。
 
 ```Assembly
 0x0013 RET
 ```
 
-A final `RET` pseudo-instruction tells the Go assembler to insert whatever instructions are required by the calling convention of the target platform in order to properly return from a subroutine call.  
-Most likely this will cause the code to pop off the return-address stored at `0(SP)` then jump back to it.
+最后`RET`伪指令告诉Go汇编器在这里需要从函数中返回，汇编器可以插入那些涉及到目标平台相关的返回指令。大部分情况会从`0(SP)`中弹出返回地址，并跳转到那里。
+> 在TEXT这节中最后的指令必须是一些跳转指令，通常是RET指令。
+> （如果不是这样，连接器会加入跳转到自己的指令；在TEXT中没有继续向下执行的情况。
 
-> The last instruction in a TEXT block must be some sort of jump, usually a RET (pseudo-)instruction.
-> (If it's not, the linker will append a jump-to-itself instruction; there is no fallthrough in TEXTs.)
 
-That's a lot of syntax and semantics to ingest all at once. Here's a quick inlined summary of what we've just covered:
+这里一次性涉及了很多语法，我们先简单浏览一下刚才谈到的代码：
+
 ```Assembly
 ;; Declare global function symbol "".add (actually main.add once linked)
 ;; Do not insert stack-split preamble
@@ -187,26 +169,25 @@ That's a lot of syntax and semantics to ingest all at once. Here's a quick inlin
   0x000e MOVB	$1, "".~r3+20(SP)   ;; move `true` boolean (constant) into caller's stack-frame
   0x0013 RET			    ;; jump to return address stored at 0(SP)
 ```
-
-All in all, here's a visual representation of what the stack looks like when `main.add` is about to `RET`:
+总而言之，这里有个当被调用时的栈的结构图。
 ```
    |    +-------------------------+ <-- 32(SP)              
+   |   |                         |                         
+   |   |                         |                         
+   |   |                         |                         
+   |   | main.main's saved       |                         
+   |   |     frame-pointer (BP)  |                         
+   |   |-------------------------| <-- 24(SP)              
+   |   |      [alignment]        |                         
+向 |    | "".~r3 (bool) = 1/true  | <-- 21(SP)              
+下 |    |-------------------------| <-- 20(SP)              
+生 |    |                         |                         
+长 |    | "".~r2 (int32) = 42     |                         
+   |    |-------------------------| <-- 16(SP)              
    |    |                         |                         
- G |    |                         |                         
- R |    |                         |                         
- O |    | main.main's saved       |                         
- W |    |     frame-pointer (BP)  |                         
- S |    |-------------------------| <-- 24(SP)              
-   |    |      [alignment]        |                         
- D |    | "".~r3 (bool) = 1/true  | <-- 21(SP)              
- O |    |-------------------------| <-- 20(SP)              
- W |    |                         |                         
- N |    | "".~r2 (int32) = 42     |                         
- W |    |-------------------------| <-- 16(SP)              
- A |    |                         |                         
- R |    | "".b (int32) = 32       |                         
- D |    |-------------------------| <-- 12(SP)              
- S |    |                         |                         
+   |    | "".b (int32) = 32       |                         
+   |    |-------------------------| <-- 12(SP)              
+   |    |                         |                         
    |    | "".a (int32) = 10       |                         
    |    |-------------------------| <-- 8(SP)               
    |    |                         |                         
@@ -216,13 +197,14 @@ All in all, here's a visual representation of what the stack looks like when `ma
   \|/   |     main.main + 0x30    |                         
    -    +-------------------------+ <-- 0(SP) (TOP OF STACK)
 
-(diagram made with https://textik.com)
+(使用 https://textik.com 做图)
 ```
 <!-- https://textik.com/#af55d3485eaa56f2 -->
 
-### Dissecting `main`
+### 分析`main`
 
-We'll spare you some unnecessary scrolling, here's a reminder of what our `main` function looks like:
+我们为了方便你查看代码，在下面列举了`main`函数的代码片段。
+
 ```Assembly
 0x0000 TEXT		"".main(SB), $24-0
   ;; ...omitted stack-split prologue...
@@ -244,9 +226,10 @@ We'll spare you some unnecessary scrolling, here's a reminder of what our `main`
 0x0000 TEXT "".main(SB), $24-0
 ```
 
-Nothing new here:
-- `"".main` (`main.main` once linked) is a global function symbol in the `.text` section, whose address is some constant offset from the beginning of our address-space.
-- It allocates a 24 bytes stack-frame and doesn't receive any argument nor does it return any value.
+这里没有新的内容：
+
+- `"".main`(链接后为`main.main`)是在`.text`节中的全局函数符号，其地址是从起始地址开始的某个常数偏移地址。
+- main函数分配了24字节的栈帧，没有任何参数与返回值。
 
 ```Assembly
 0x000f SUBQ     $24, SP
@@ -254,25 +237,27 @@ Nothing new here:
 0x0018 LEAQ     16(SP), BP
 ```
 
-As we mentioned above, the Go calling convention mandates that every argument must be passed on the stack.
+如我们之前提到的，Go的调用规则规定每个参数必须通过栈来传递。
 
-Our caller, `main`, grows its stack-frame by 24 bytes (*remember that the stack grows downwards, so `SUBQ` here actually makes the stack-frame bigger*) by decrementing the virtual stack-pointer.
-Of those 24 bytes:
-- 8 bytes (`16(SP)`-`24(SP)`) are used to store the current value of the frame-pointer `BP` (*the real one!*) to allow for stack-unwinding and facilitate debugging
-- 1+3 bytes (`12(SP)`-`16(SP)`) are reserved for the second return value (`bool`) plus 3 bytes of necessary alignment on `amd64`
-- 4 bytes (`8(SP)`-`12(SP)`) are reserved for the first return value (`int32`)
-- 4 bytes (`4(SP)`-`8(SP)`) are reserved for the value of argument `b (int32)`
-- 4 bytes (`0(SP)`-`4(SP)`) are reserved for the value of argument `a (int32)`
+我们的调用者通过减少虚拟栈指针的值来增长栈帧的空间（*记住栈的增长是向下的，所以`SUBQ`会让栈帧增长*）。
+显然是24个字节：
+- 8字节（`16(SP)`-`24(SP)`）是被用来存储当前的frame-poiter：`BP`，以便允许栈展开方便调试。
+- 1+3 字节(`12(SP)`-`16(SP)`)是保留给第二个返回值(`bool`)以及在`amd64`架构上的三个对齐字节。
+- 4个字节(`8(SP)`-`12(SP)`)是留给第一个返回值(`int32`)
+- 4个字节 (`4(SP)`-`8(SP)`)是留给参数`b(int32)`
+- 4个字节(`0(SP)`-`4(SP)`)是六个参数`a(int32)`
 
-Finally, following the growth of the stack, `LEAQ` computes the new address of the frame-pointer and stores it in `BP`.
+最后，随着栈的增长，`LEAQ`计算frame-pointer的新的地址，并存储在`BP`里。
+
 
 ```Assembly
 0x001d MOVQ     $137438953482, AX
 0x0027 MOVQ     AX, (SP)
 ```
 
-The caller pushes the arguments for the callee as a **Q**uad word (i.e. an 8-byte value) at the top of the stack that it has just grown.  
-Although it might look like random garbage at first, `137438953482` actually corresponds to the `10` and `32` 4-byte values concatenated into one 8-byte value:
+调用者将参数压入刚增长的栈的最顶端，通过带有**Q**结尾的指令可以操作8字节的数据。
+尽管这个数字看起来像是随机数，`137438953482` 实际上代表了`10`与`23`，只是将`10`和`32`这两个数字的4字节二进制表示形式按照十进制数字来显示了。如下图：
+
 ```
 $ echo 'obase=2;137438953482' | bc
 10000000000000000000000000000000001010
@@ -284,10 +269,8 @@ $ echo 'obase=2;137438953482' | bc
 0x002b CALL     "".add(SB)
 ```
 
-We `CALL` our `add` function as an offset relative to the static-base pointer: i.e. this is a straightforward jump to a direct address.
-
-Note that `CALL` also pushes the return-address (8-byte value) at the top of the stack; so every references to `SP` made from within our `add` function end up being offsetted by 8 bytes!  
-E.g. `"".a` is not at `0(SP)` anymore, but at `8(SP)`.
+我们`CALL`(调用)`add`函数，使用了一个相对与static-base指针(全局符号寄存器)的偏移量。这实际上直接跳转到add函数地址。
+注意`CALL`也会将返回值(8字节)压入栈顶，所以每次引用`SP`，需要在`add`函数最后偏移8个字节！例如 `"".a`不是`0(SP)`而是 `8(SP)`。
 
 ```Assembly
 0x0030 MOVQ     16(SP), BP
@@ -295,31 +278,29 @@ E.g. `"".a` is not at `0(SP)` anymore, but at `8(SP)`.
 0x0039 RET
 ```
 
-Finally, we:
-1. Unwind the frame-pointer by one stack-frame (i.e. we "go down" one level)
-2. Shrink the stack by 24 bytes to reclaim the stack space we had previously allocated
-3. Ask the Go assembler to insert subroutine-return related stuff
+最后：
+1. 通过栈来恢复最初的frame-pointer的值（保存在BP中）。
+2. 收缩我们之前分配的24个字节的栈的空间。
+3. 要求Go汇编器插入返回相关的指令
 
-## A word about goroutines, stacks and splits
+## 关于goroutines，stacks和splits
 
-Now is not the time nor place to delve into goroutines' internals (*..that comes later*), but as we start looking at assembly dumps more and more, instructions related to stack management will rapidly become a very familiar sight.  
-We should be able to quickly recognize these patterns, and, while we're at it, understand the general idea of what they do and why do they do it.
+现在不适合介绍goroutine的细节(稍后会提出),但是由于已经开始研究汇编，我们会越来越熟悉涉及栈管理的指令代码。我们应该快速的了解一下这些部分，了解常见的思想以及这样设计的原因。
 
-### Stacks
 
-Since the number of goroutines in a Go program is non-deterministic, and can go up to several millions in practice, the runtime must take the conservative route when allocating stack space for goroutines to avoid eating up all of the available memory.  
-As such, every new goroutine is given an initial tiny 2kB stack by the runtime (said stack is actually allocated on the heap behind the scenes).
+### Stacks（栈）
 
-As a goroutine runs along doing its job, it might end up outgrowing its constrained, initial stack-space (i.e. stack-overflow).  
-To prevent this from happening, the runtime makes sure that when a goroutine is running out of stack, a new, bigger stack with two times the size of the old one gets allocated, and that the content of the original stack gets copied over to the new one.  
-This process is known as a *stack-split* and effectively makes goroutine stacks dynamically-sized.
+由于Go语言程序的协程数量是不确定的，并且在实际中可能达到数百万，运行时(runtime)必须在给每个协程分配栈空间时采取保守策略，以免吃光可用内存。
+因此，每个新的协程创建时会分配到2k左右的栈空间(据说栈实际上会被分配到堆上)。
+随着一个协程执行，可能会需要更多的内存。为了防止栈溢出，运行时(runtime)需要在溢出发生之前，再为协程分配一个比之前两倍大的空间，原来栈中的内容会被拷贝到新的栈中。
+这个过程被称为*stack-split*，并且可以提供有效的动态栈。
 
-### Splits
+### Splits（拆分)
 
-For stack-splitting to work, the compiler inserts a few instructions at the beginning and end of every function that could potentially overflow its stack.  
-As we've seen earlier in this chapter, and to avoid unnecessary overhead, functions that cannot possibly outgrow their stack are marked as `NOSPLIT` as a hint for the compiler not to insert these checks.
+对于栈拆分的工作，编译器在每个函数的开始与结尾插入少量指令，以保护栈不会溢出。在本章开始时我们看到，为了防止额外的开销，不需要增长栈空间的函数会使用`NOSPLIT`告诉编译器不要插入这些检查指令。
 
-Let's look at our main function from earlier, this time without omitting the stack-split preamble:
+让我们看一下之前的main函数，这次没有省略stack-split前导码：
+
 ```Assembly
 0x0000 TEXT	"".main(SB), $24-0
   ;; stack-split prologue
@@ -346,22 +327,23 @@ Let's look at our main function from earlier, this time without omitting the sta
   0x003f JMP	0
 ```
 
-As you can see, the stack-split preamble is divided into a prologue and an epilogue:
-- The prologue checks whether the goroutine is running out of space and, if it's the case, jumps to the epilogue.
-- The epilogue, on the other hand, triggers the stack-growth machinery and then jumps back to the prologue.
+可以看到，stack-split前导码被分成两部分：序言与结语
+- 序言检查协程是否马上要越界，如果要越界了，就跳转到结语
+- 另一方面，结语会触发栈增长，之后跳转回序言。
 
-This creates a feedback loop that goes on for as long as a large enough stack hasn't been allocated for our starved goroutine.
+这创建了一个反馈式的循环，会持续为需要内存的协程分配内存。
 
-**Prologue**
+**序幕**
+
 ```Assembly
 0x0000 MOVQ	(TLS), CX   ;; store current *g in CX
 0x0009 CMPQ	SP, 16(CX)  ;; compare SP and g.stackguard0
 0x000d JLS	58	    ;; jumps to 0x3a if SP <= g.stackguard0
 ```
+`TLS`是运行时的虚拟寄存器，保存了当前`g`的指针。其数据结构可以跟踪一个协程的所有状态。
 
-`TLS` is a virtual register maintained by the runtime that holds a pointer to the current `g`, i.e. the data-structure that keeps track of all the state of a goroutine.
+让我们开下运行时中`g`的源码。
 
-Looking at the definition of `g` from the source code of the runtime:
 ```Go
 type g struct {
 	stack       stack   // 16 bytes
@@ -373,36 +355,32 @@ type g struct {
 	// ...omitted dozens of fields...
 }
 ```
-We can see that `16(CX)` corresponds to `g.stackguard0`, which is the threshold value maintained by the runtime that, when compared to the stack-pointer, indicates whether or not a goroutine is about to run out of space.  
-The prologue thus checks if the current `SP` value is less than or equal to the `stackguard0` threshold (that is, it's bigger), then jumps to the epilogue if it happens to be the case.
 
-**Epilogue**
+我们可以看到`16(CX)`对应于`g.stackguard0`，这是运行时维护的一个阈值，与stack-pointer相比较，可以指示一个协程是否会超出内存。
+序言会检查当前的 `SP`值是否小于或等于`stackguard0`阈值，如果超出则会跳转到结语处。
+
+
+**结语**
 ```Assembly
 0x003a NOP
 0x003a CALL	runtime.morestack_noctxt(SB)
 0x003f JMP	0
 ```
-
-The body of the epilogue is pretty straightforward: it calls into the runtime, which will do the actual work of growing the stack, then jumps back to the first instruction of the function (i.e. to the prologue).
+结语很直接：调用运行时的增长栈空间的函数，之后会返回到函数开始处(序言那里)
 
 The `NOP` instruction just before the `CALL` exists so that the prologue doesn't jump directly onto a `CALL` instruction. On some platforms, doing so can lead to very dark places; it's common pratice to set-up a noop instruction right before the actual call and land on this `NOP` instead.
 
-### Minus some subtleties
+在`CALL`指令之前有一个`NOP`，这样结语不会直接跳转`CALL`指令，在有些平台上这样做是非常不好；通常的经验是在实际的call之前设置一个空操作(nop)，而不是设置一个`NOP`。
 
-We've merely covered the tip of the iceberg here.  
-The inner mechanics of stack-growth have many more subtleties that we haven't even mentioned here. The whole process is quite a complex machinery overall, and will require a chapter of its own.
+### 没有提及一些技巧
+我们仅在这里介绍冰山一角。
+栈增长的内部机制我们有很多没有提及的技巧。整个过程是十分复杂的机制，需要单独的一章来介绍。我们会及时做介绍的。
 
-We'll come back to these matters in time.
+## 总结
+Go汇编的简单介绍应该能让你上手，随着我们在本书中深入解析Go的内幕，Go 汇编会成为我们了解这些内幕的最依赖的工具之一，串联那些看起来没什么关系的要点。如果你有问题或建议，尽管开一个issue提问吧。
 
-## Conclusion
 
-This quick introduction to Go's assembler should give you enough material to start toying around.
-
-As we dig deeper and deeper into Go's internals for the rest of this book, Go assembly will be one of our most relied-on tool to understand what goes on behind the scenes and connect the, at first sight, not-always-so-obvious dots.
-
-If you have any questions or suggestions, don't hesitate to open an issue with the `chapter1:` prefix!
-
-## Links
+## 参考链接
 
 - [[Official] A Quick Guide to Go's Assembler](https://golang.org/doc/asm)
 - [[Official] Go Compiler Directives](https://golang.org/cmd/compile/#hdr-Compiler_Directives)
