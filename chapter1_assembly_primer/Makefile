@@ -3,7 +3,7 @@ GOARCH=amd64
 
 SOURCES := $(wildcard *.go)
 OBJECTS = $(SOURCES:.go=.o)
-EXECUTABLES = $(OBJECTS:.o=)
+EXECUTABLES = $(OBJECTS:.o=.bin)
 
 .SECONDARY: ${OBJECTS}
 
@@ -12,9 +12,9 @@ all: ${EXECUTABLES}
 %.o: %.go
 	GOOS=${GOOS} GOARCH=${GOARCH} go tool compile $<
 
-%: %.o
+%.bin: %.o
 	GOOS=${GOOS} GOARCH=${GOARCH} go tool link -o $@ $<
 
 clean:
-	rm ${OBJECTS}
-	rm ${EXECUTABLES}
+	rm -f ${OBJECTS}
+	rm -f ${EXECUTABLES}

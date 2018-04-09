@@ -1,14 +1,15 @@
 <!-- Copyright © 2018 Clement Rey <cr.rey.clement@gmail.com>. -->
 <!-- Licensed under the BY-NC-SA Creative Commons 4.0 International Public License. -->
 
+```Bash
+$ go version
+go version go1.10 linux/amd64
+```
+
 # Chapter I: A Primer on Go Assembly
 
 Developing some familiarity with Go's abstract assembly language is a must before we can start delving into the implementation of the runtime & standard library.  
 This quick guide should hopefully get you up-to-speed.
-
-- *This chapter assumes some basic knowledge of any kind of assembler.*
-- *If and when running into architecture-specifics matters, always assume `linux/amd64`.*
-- *We will always work with compiler optimizations **enabled**.*
 
 ---
 
@@ -32,7 +33,10 @@ This quick guide should hopefully get you up-to-speed.
 
 ---
 
-*Quoted text and/or comments always come from the official documentation and/or codebase, unless stated otherwise.*
+- *This chapter assumes some basic knowledge of any kind of assembler.*
+- *If and when running into architecture-specific matters, always assume `linux/amd64`.*
+- *We will always work with compiler optimizations **enabled**.*
+- *Quoted text and/or comments always come from the official documentation and/or codebase, unless stated otherwise.*
 
 ## "Pseudo-assembly"
 
@@ -139,7 +143,8 @@ The Go compiler never generates instructions from the PUSH/POP family: the stack
 
 Although the official documentation states that "*All user-defined symbols are written as offsets to the pseudo-register FP (arguments and locals)*", this is only ever true for hand-written code.  
 Like most recent compilers, the Go tool suite always references argument and locals using offsets from the stack-pointer directly in the code it generates. This allows for the frame-pointer to be used as an extra general-purpose register on platform with fewer registers (e.g. x86).  
-Have a look at *Stack frame layout on x86-64* in the links at the end of this chapter if you enjoy this kind of nitty gritty details.
+Have a look at *Stack frame layout on x86-64* in the links at the end of this chapter if you enjoy this kind of nitty gritty details.  
+*[UPDATE: We've discussed about this matter in [issue #2: Frame pointer](https://github.com/teh-cmc/go-internals/issues/2).]*
 
 `"".b+12(SP)` and `"".a+8(SP)` respectively refer to the addresses 12 bytes and 8 bytes below the top of the stack (remember: it grows downwards!).  
 `.a` and `.b` are arbitrary aliases given to the referred locations; although *they have absolutely no semantic meaning* whatsoever, they are mandatory when using relative addressing on virtual registers.
@@ -188,7 +193,7 @@ That's a lot of syntax and semantics to ingest all at once. Here's a quick inlin
   0x0013 RET			    ;; jump to return address stored at 0(SP)
 ```
 
-All in all, here's a visual representation of what the stack looks like when `main.add` is about to `RET`:
+All in all, here's a visual representation of what the stack looks like when `main.add` has finished executing:
 ```
    |    +-------------------------+ <-- 32(SP)              
    |    |                         |                         
@@ -310,7 +315,7 @@ We should be able to quickly recognize these patterns, and, while we're at it, u
 Since the number of goroutines in a Go program is non-deterministic, and can go up to several millions in practice, the runtime must take the conservative route when allocating stack space for goroutines to avoid eating up all of the available memory.  
 As such, every new goroutine is given an initial tiny 2kB stack by the runtime (said stack is actually allocated on the heap behind the scenes).
 
-As a goroutine runs along doing its job, it might end up outgrowing its constrained, initial stack-space (i.e. stack-overflow).  
+As a goroutine runs along doing its job, it might end up outgrowing its contrived, initial stack-space (i.e. stack-overflow).  
 To prevent this from happening, the runtime makes sure that when a goroutine is running out of stack, a new, bigger stack with two times the size of the old one gets allocated, and that the content of the original stack gets copied over to the new one.  
 This process is known as a *stack-split* and effectively makes goroutine stacks dynamically-sized.
 
@@ -385,12 +390,13 @@ The prologue thus checks if the current `SP` value is less than or equal to the 
 
 The body of the epilogue is pretty straightforward: it calls into the runtime, which will do the actual work of growing the stack, then jumps back to the first instruction of the function (i.e. to the prologue).
 
-The `NOP` instruction just before the `CALL` exists so that the prologue doesn't jump directly onto a `CALL` instruction. On some platforms, doing so can lead to very dark places; it's common pratice to set-up a noop instruction right before the actual call and land on this `NOP` instead.
+The `NOP` instruction just before the `CALL` exists so that the prologue doesn't jump directly onto a `CALL` instruction. On some platforms, doing so can lead to very dark places; it's a common pratice to set-up a noop instruction right before the actual call and land on this `NOP` instead.  
+*[UPDATE: We've discussed about this matter in [issue #4: Clarify "nop before call" paragraph](https://github.com/teh-cmc/go-internals/issues/4).]*
 
 ### Minus some subtleties
 
 We've merely covered the tip of the iceberg here.  
-The inner mechanics of stack-growth have many more subtleties that we haven't even mentioned here. The whole process is quite a complex machinery overall, and will require a chapter of its own.
+The inner mechanics of stack-growth have many more subtleties that we haven't even mentioned here: the whole process is quite a complex machinery overall, and will require a chapter of its own.
 
 We'll come back to these matters in time.
 
@@ -408,7 +414,9 @@ If you have any questions or suggestions, don't hesitate to open an issue with t
 - [[Official] Go Compiler Directives](https://golang.org/cmd/compile/#hdr-Compiler_Directives)
 - [[Official] The design of the Go Assembler](https://www.youtube.com/watch?v=KINIAgRpkDA)
 - [[Official] Contiguous stacks Design Document](https://docs.google.com/document/d/1wAaf1rYoM4S4gtnPh0zOlGzWtrZFQ5suE8qr2sD8uWQ/pub)
-- [[Official] The `_StackMin` constant](https://github.com/golang/go/blob/ea8d7a370d66550d587414cc0cab650f35400f94/src/runtime/stack.go#L70-L71)
+- [[Official] The `_StackMin` constant](https://github.com/golang/go/blob/bf86aec25972f3a100c3aa58a6abcbcc35bdea49/src/runtime/stack.go#L70-L71)
+- [[Discussion] Issue #2: *Frame pointer*](https://github.com/teh-cmc/go-internals/issues/2)
+- [[Discussion] Issue #4: *Clarify "nop before call" paragraph*](https://github.com/teh-cmc/go-internals/issues/4)
 - [A Foray Into Go Assembly Programming](https://blog.sgmansfield.com/2017/04/a-foray-into-go-assembly-programming/)
 - [Dropping Down Go Functions in Assembly](https://www.youtube.com/watch?v=9jpnFmJr2PE)
 - [What is the purpose of the EBP frame pointer register?](https://stackoverflow.com/questions/579262/what-is-the-purpose-of-the-ebp-frame-pointer-register)
