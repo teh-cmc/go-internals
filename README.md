@@ -7,7 +7,8 @@
 ## Table of Contents
 
 - [Chapter I: A Primer on Go Assembly](./chapter1_assembly_primer/README.md)
-- [Chapter II (soon!): The implementation & cost of Interfaces](./chapter2_interfaces/README.md)
+- [Chapter II: Interfaces](./chapter2_interfaces/README.md)
+- [Chapter III (soon!): The Garbage Collector](./chapter3_garbage_collector/README.md)
 
 ---
 
