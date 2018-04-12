@@ -975,7 +975,7 @@ And now, here's the assembly listing for the indirect method call that follows (
 0x0060 CALL	AX
 ```
 
-With the knowdledge accumulated from the previous sections, these few instructions should be straightforward to understand.
+With the knowledge accumulated from the previous sections, these few instructions should be straightforward to understand.
 
 ```Assembly
 0x0049 MOVQ	24(AX), AX
