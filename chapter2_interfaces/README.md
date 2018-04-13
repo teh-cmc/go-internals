@@ -1468,7 +1468,7 @@ By now you should have a pretty clear idea of how interfaces work, so we'll try 
 
 ### The empty interface
 
-The datastructure for the empty interface is what you'd intuitively think it would be: an `iface` without an `itab`.  
+The datastructure for the empty interface is what you'd intuitively think it would be: an `eface` without an `itab`.  
 There are two reasons for that:
 1. Since the empty interface has no methods, everything related to dynamic dispatch can safely be dropped from the datastructure.
 1. With the virtual table gone, the type of the empty interface itself, not to be confused with the type of the data it holds, is always the same (i.e. we talk about *the* empty interface rather than *an* empty interface).
