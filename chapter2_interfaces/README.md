@@ -435,7 +435,7 @@ type imethod struct {
 }
 ```
 
-As mentionned, an `interfacetype` is just a wrapper around a `_type` with some extra interface-specific metadata added on top.  
+As mentioned, an `interfacetype` is just a wrapper around a `_type` with some extra interface-specific metadata added on top.  
 In the current implementation, this metadata is mostly composed of a list of offsets that points to the respective names and types of the methods exposed by the interface (`[]imethod`).
 
 **Conclusion**
@@ -1204,7 +1204,7 @@ The results match our expectations: the "interface" version is indeed a bit slow
 8% might sound like a noticeable difference at first, but we have to keep in mind that A) these are nanosecond-scale measurements and B) the method being called does so little work that it magnifies even more the overhead of the call.
 
 Looking at the number of instructions per benchmark, we see that the interface-based version has had to execute for ~14 billion more instructions compared to the "direct" version (`110,979,100,648` vs. `124,467,105,161`), even though both benchmarks were run for `6,000,000,000` (`2,000,000,000\*3`) iterations.  
-As we've mentionned before, the CPU cannot parallelize these extra instructions due to the `CALL` depending on them, which gets reflected quite clearly in the instruction-per-cycle ratio: both benchmarks end up with a similar IPC ratio (`2.54` vs. `2.63`) even though the "interface" version has much more work to do overall.  
+As we've mentioned before, the CPU cannot parallelize these extra instructions due to the `CALL` depending on them, which gets reflected quite clearly in the instruction-per-cycle ratio: both benchmarks end up with a similar IPC ratio (`2.54` vs. `2.63`) even though the "interface" version has much more work to do overall.  
 This lack of parallelism piles up to an extra ~3.5 billion CPU cycles for the "interface" version, which is where those extra 0.15ns that we've measured are actually spent.
 
 Now what happens when we let the compiler inline the method call?
@@ -1449,7 +1449,7 @@ MethodCall_direct/many/inline/random_incr/baseline  9.20ns ± 1%
 MethodCall_direct/many/inline/random_incr/call      16.9ns ± 1% # 16.9 - 9.2 = 7.7ns
 ```
 Which would have made the "direct" version around 2 to 3 times faster than the "interface" version in cases where the compiler would have been able to inline the call.  
-Then again, as we've mentionned earlier, the limited capabilities of the current compiler with regards to inlining mean that, in practice, these kind of wins would rarely be seen. And of course, there often are times when you really don't have a choice but to resort to virtual calls anyway.
+Then again, as we've mentioned earlier, the limited capabilities of the current compiler with regards to inlining mean that, in practice, these kind of wins would rarely be seen. And of course, there often are times when you really don't have a choice but to resort to virtual calls anyway.
 
 **Conclusion**
 
@@ -1490,7 +1490,7 @@ While the empty interface could just reuse the `iface` datastructure (it is a su
 
 ### Interface holding a scalar type
 
-Earlier in this chapter ([#Anatomy of an Interface](#overview-of-the-datastructures)), we've mentionned that even storing a simple scalar type such as an integer into an interface will result in a heap allocation.  
+Earlier in this chapter ([#Anatomy of an Interface](#overview-of-the-datastructures)), we've mentioned that even storing a simple scalar type such as an integer into an interface will result in a heap allocation.  
 It's time we see why, and how.
 
 Consider these two benchmarks ([eface_scalar_test.go](./eface_scalar_test.go)):
@@ -1660,7 +1660,7 @@ Voila, we've got a complete interface holding a simple scalar type (`uint32`).
 
 While sticking a scalar value into an interface is not something that happens that often in practice, it can be a costly operation for various reasons, and as such it's important to be aware of the machinery behind it.
 
-Speaking of cost, we've mentionned that the compiler implements various tricks to avoid allocating in some specific situations; we'll close this section with a quick look at 3 of those tricks.
+Speaking of cost, we've mentioned that the compiler implements various tricks to avoid allocating in some specific situations; we'll close this section with a quick look at 3 of those tricks.
 
 **Interface trick 1: Byte-sized values**
 
@@ -1814,7 +1814,7 @@ First, notice how we make use of `uint32(i - i)` instead of `uint32(0)` to preve
 (*Sure, we could just have declared a global zero variable and the compiler would had been forced to take the conservative route too.. but then again, we're trying to have some fun here. Don't be that guy.*)  
 The generated code now looks exactly like the normal, allocating case.. and still, it doesn't allocate. What's going on?
 
-As we've mentionned earlier back when we were dissecting `runtime.convT2E32`, the allocation here can be optimized out using a trick similar to #1 (byte-sized values): when some code needs to reference a variable that holds a zero-value, the compiler simply gives it the address of a global variable exposed by the runtime whose value is always zero.  
+As we've mentioned earlier back when we were dissecting `runtime.convT2E32`, the allocation here can be optimized out using a trick similar to #1 (byte-sized values): when some code needs to reference a variable that holds a zero-value, the compiler simply gives it the address of a global variable exposed by the runtime whose value is always zero.  
 Similarly to `runtime.staticbytes`, we can find this variable in the runtime code ([src/runtime/hashmap.go](https://github.com/golang/go/blob/bf86aec25972f3a100c3aa58a6abcbcc35bdea49/src/runtime/hashmap.go#L1248-L1249)):
 ```Go
 const maxZero = 1024 // must match value in ../cmd/compile/internal/gc/walk.go
