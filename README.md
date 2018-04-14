@@ -12,6 +12,8 @@
 
 ---
 
+*Click [here](https://cmc.gitbook.io/go-internals/) for the GitBook version.*
+
 ## Goals
 
 - **Concise**: The book aims to be as concise as possible, encouraging code and diagrams over lengthy prose.
