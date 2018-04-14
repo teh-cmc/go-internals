@@ -1,8 +1,4 @@
----
-description: Interfaces
----
-
-# Chapter II
+# Chapter II: Interfaces
 
 ```bash
 $ go version

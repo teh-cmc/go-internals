@@ -1,8 +1,4 @@
----
-description: The Garbage Collector
----
-
-# Chapter III
+# Chapter III: Garbage Collector
 
 Soon!
 

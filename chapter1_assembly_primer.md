@@ -1,8 +1,4 @@
----
-description: A Primer on Go Assembly
----
-
-# Chapter I
+# Chapter I: Go Assembly
 
 ```bash
 $ go version
