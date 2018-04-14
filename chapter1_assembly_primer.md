@@ -26,6 +26,9 @@ This quick guide should hopefully get you up-to-speed.
   * [Minus some subtleties](chapter1_assembly_primer.md#minus-some-subtleties)
 * [Conclusion](chapter1_assembly_primer.md#conclusion)
 * [Links](chapter1_assembly_primer.md#links)
+
+
+
 * _This chapter assumes some basic knowledge of any kind of assembler._
 * _If and when running into architecture-specific matters, always assume _`linux/amd64`_._
 * _We will always work with compiler optimizations **enabled**._
