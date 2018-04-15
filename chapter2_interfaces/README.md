@@ -590,7 +590,8 @@ As usual, since we're looking directly at the intermediate object file generated
 Other than that, what we've got here is a 40-byte global object symbol that will be stored in the `.rodata` section of our binary.
 
 Note the `dupok` directive, which tells the linker that it is legal for this symbol to appear multiple times at link-time: the linker will have to arbitrarily choose one of them over the others.  
-What makes the Go authors think that this symbol might end up duplicated, I'm not sure. Feel free to file an issue if you know more.
+What makes the Go authors think that this symbol might end up duplicated, I'm not sure. Feel free to file an issue if you know more.  
+*[UPDATE: We've discussed about this matter in [issue #7: How you can get duplicated go.itab interface definitions](https://github.com/teh-cmc/go-internals/issues/7).]*
 
 The second piece is a hexdump of the 40 bytes of data associated with the symbol. I.e., it's a serialized representation of an `itab` structure:
 ```
