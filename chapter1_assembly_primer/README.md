@@ -138,7 +138,7 @@ Don't worry about this for now; we'll come back to it when diving into garbage c
 The Go calling convention mandates that every argument must be passed on the stack, using the pre-reserved space on the caller's stack-frame.  
 It is the caller's responsibility to grow (and shrink back) the stack appropriately so that arguments can be passed to the callee, and potential return-values passed back to the caller.
 
-The Go compiler never generates instructions from the PUSH/POP family: the stack is grown or shrunk by respectively decrementing or incrementing the virtual stack pointer `SP`.  
+The Go compiler never generates instructions from the PUSH/POP family: the stack is grown or shrunk by respectively decrementing or incrementing the ~virtual~ hardware stack pointer `SP`.  
 > The SP pseudo-register is a virtual stack pointer used to refer to frame-local variables and the arguments being prepared for function calls. It points to the top of the local stack frame, so references should use negative offsets in the range [−framesize, 0): x-8(SP), y-4(SP), and so on.
 *[UPDATE: We've discussed about this matter in [issue #21: about SP register](https://github.com/teh-cmc/go-internals/issues/21).]*
 
