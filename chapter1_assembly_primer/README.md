@@ -140,6 +140,7 @@ It is the caller's responsibility to grow (and shrink back) the stack appropriat
 
 The Go compiler never generates instructions from the PUSH/POP family: the stack is grown or shrunk by respectively decrementing or incrementing the virtual stack pointer `SP`.  
 > The SP pseudo-register is a virtual stack pointer used to refer to frame-local variables and the arguments being prepared for function calls. It points to the top of the local stack frame, so references should use negative offsets in the range [−framesize, 0): x-8(SP), y-4(SP), and so on.
+*[UPDATE: We've discussed about this matter in [issue #21: about SP register](https://github.com/teh-cmc/go-internals/issues/21).]*
 
 Although the official documentation states that "*All user-defined symbols are written as offsets to the pseudo-register FP (arguments and locals)*", this is only ever true for hand-written code.  
 Like most recent compilers, the Go tool suite always references argument and locals using offsets from the stack-pointer directly in the code it generates. This allows for the frame-pointer to be used as an extra general-purpose register on platform with fewer registers (e.g. x86).  
