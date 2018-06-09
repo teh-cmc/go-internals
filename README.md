@@ -22,6 +22,10 @@
 - **Up-to-Date**: The book will try to keep up-to-date with new Go versions being released.
 - **Experienced audience**: The Go community has created *loads* of great introductory material for newcomers. Unfortunately we're still lacking good resources when it comes to the more advanced stuff. This books hopes to help solve this issue.
 
+## Translations
+
+- [Chinese](https://github.com/go-internals-cn/go-internals)
+
 ## Contributing
 
 All kinds of contributions are very much welcome.
