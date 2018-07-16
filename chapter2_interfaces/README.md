@@ -490,7 +490,7 @@ In the next section, we'll learn how these datastructures actually get computed.
 
 ### Creating an interface
 
-Now that we've had a quick look at all the datastructures involved, we'll focus on how they actually get allocated and initiliazed.
+Now that we've had a quick look at all the datastructures involved, we'll focus on how they actually get allocated and initialized.
 
 Consider the following program ([iface.go](./iface.go)):
 ```Go
