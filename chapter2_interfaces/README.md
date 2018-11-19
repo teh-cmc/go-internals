@@ -1027,7 +1027,7 @@ We'll close this section with a complete annotated assembly listing of the entir
 0x0049 MOVQ	24(AX), AX                          ;; AX now holds (*iface.tab)+0x18, i.e. iface.tab.fun[0]
 0x004d MOVQ	$137438953482, DX                   ;; move (32,10) to..
 0x0057 MOVQ	DX, 8(SP)                           ;; ..the top of the stack (arguments #3 & #2)
-0x005c MOVQ	CX, (SP)                            ;; CX, which holds &$6754 (i.e., our receiver), gets moved to
+0x005c MOVQ	CX, (SP)                            ;; CX, which holds $6754 (i.e., our receiver), gets moved to
                                                     ;; ..the top of stack (argument #1 -> receiver)
 0x0060 CALL	AX                                  ;; you know the drill
 ```
