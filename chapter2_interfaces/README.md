@@ -655,8 +655,8 @@ We've got ourselves a ready-to-use `itab`, now if we just had some data to along
 0x0044 MOVQ	24(SP), CX
 ```
 
-Remember from part 1 that the top of the stack `(SP)` currently holds the address of `go.itab."".Adder,"".Mather` (argument #1).  
-Also remember from part 2 that we had stored a `$6754` decimal constant in `""..autotmp_1+36(SP)`: we now load the effective address of this constant just below the top of the stack-frame, at 8(SP) (argument #2).
+Remember from part 2 that the top of the stack `(SP)` currently holds the address of `go.itab."".Adder,"".Mather` (argument #1).  
+Also remember from part 1 that we had stored a `$6754` decimal constant in `""..autotmp_1+36(SP)`: we now load the effective address of this constant just below the top of the stack-frame, at 8(SP) (argument #2).
 
 These two pointers are the two arguments that we pass into `runtime.convT2I32`, which will apply the final touches of glue to create and return our complete interface.  
 Let's have a closer look at it ([src/runtime/iface.go](https://github.com/golang/go/blob/bf86aec25972f3a100c3aa58a6abcbcc35bdea49/src/runtime/iface.go#L433-L451)):
