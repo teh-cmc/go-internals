@@ -2084,9 +2084,9 @@ This quite simple type-switch statement translates into the following assembly (
 0x00ab 00171 LEAQ	type.uint16(SB), DX	;; DX = type.uint16
 0x00b2 00178 CMPQ	DX, AX			;; type.uint16 == Eface._type ? (hash collision?)
 0x00b5 00181 JNE	199			;; no? clear AX and exit the switch
-0x00b7 00183 MOVWLZX	(CX), AX		;; AX = uint16(*Eface.data)
+0x00b7 00183 MOVWLZX	(CX), AX		;; AX = uint32(*Eface.data)
 0x00ba 00186 JNE	153			;; landsite for indirect jump starting at 0x00cc
-0x00bc 00188 MOVWLZX	AX, AX			;; AX = uint16(AX) (redundant)
+0x00bc 00188 MOVWLZX	AX, AX			;; AX = uint32(AX) (redundant)
 0x00bf 00191 MOVL	AX, "".j(SB)		;; j = AX = *Eface.data
 0x00c5 00197 JMP	153			;; we're done, exit the switch
 ;; indirect jump table
